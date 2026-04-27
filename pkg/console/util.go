@@ -302,9 +302,12 @@ func getFormattedServerURL(addr string) (string, error) {
 		return "", errors.New("management address cannot be empty")
 	}
 	addr = strings.TrimSpace(addr)
+	if ip := net.ParseIP(addr); ip != nil && ip.To4() == nil {
+		addr = "[" + addr + "]"
+	}
 
 	realAddr := addr
-	if !strings.HasPrefix(addr, https) {
+	if !strings.HasPrefix(realAddr, "https") {
 		realAddr = https + addr
 	}
 	parsedURL, err := url.ParseRequestURI(realAddr)

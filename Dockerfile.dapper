@@ -14,8 +14,23 @@ ARG DAPPER_HOST_ARCH
 ENV ARCH $DAPPER_HOST_ARCH
 
 # mtools and dosfstools are requirements for luet-makeiso >= 0.4.0 to build hybrid ISO.
+# docker is excluded from zypper: the distro package is too old (API 1.42); we install a
+# static Docker CE client below that supports API >= 1.44.
 RUN zypper -n rm container-suseconnect && \
-    zypper -n install git curl docker gzip tar wget zstd squashfs xorriso awk jq mtools dosfstools unzip rsync patch
+    zypper -n install git curl gzip tar wget zstd squashfs xorriso awk jq mtools dosfstools unzip rsync patch
+
+# Install a recent Docker CE static client (API 1.47 / Docker 27.x).
+# Docker static tarballs use x86_64/aarch64; map from the dapper ARCH value.
+ARG DOCKER_CLIENT_VERSION=27.5.1
+RUN DOCKER_ARCH=$([ "${ARCH}" = "arm64" ] && echo "aarch64" || echo "x86_64") && \
+    curl -fsSL https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_CLIENT_VERSION}.tgz \
+    | tar -xz --strip-components=1 -C /usr/bin docker/docker && \
+    chmod +x /usr/bin/docker
+
+# Force the Docker Go SDK (embedded in elemental 1.1.8, which is extracted from the
+# harvester-os image) to negotiate API 1.44 instead of its compiled-in default of 1.42.
+# Without this the build fails because newer Docker daemons require API >= 1.44.
+ENV DOCKER_API_VERSION=1.44
 
 # yq
 # renovate: datasource=github-release-attachments depName=mikefarah/yq

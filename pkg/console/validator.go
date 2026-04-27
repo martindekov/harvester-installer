@@ -179,7 +179,7 @@ func checkDomain(domain string) error {
 }
 
 func checkIP(addr string) error {
-	if ip := net.ParseIP(addr); ip == nil || ip.To4() == nil {
+	if ip := net.ParseIP(addr); ip == nil {
 		return fmt.Errorf("%s is not a valid IP address", addr)
 	}
 	return nil

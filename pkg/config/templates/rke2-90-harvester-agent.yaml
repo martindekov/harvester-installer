@@ -1,6 +1,6 @@
-{{- with $args :=  .GetKubeletArgs }}
+{{- with $args := .GetKubeletArgs }}
 kubelet-arg:
 {{- range $arg := $args }}
-- {{ printf "%q" $arg }}
+  - {{ printf "%q" $arg }}
 {{- end }}
 {{- end }}

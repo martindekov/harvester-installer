@@ -1,18 +1,25 @@
 cni: multus,canal
-cluster-cidr: {{ or .ClusterPodCIDR "10.52.0.0/16" }}
-service-cidr: {{ or .ClusterServiceCIDR "10.53.0.0/16" }}
-cluster-dns: {{ or .ClusterDNS "10.53.0.10" }}
+cluster-cidr: fd42::/48,10.42.0.0/16
+service-cidr: fd43::/112,10.43.0.0/16
+cluster-dns: fd43::a,10.43.0.10
+kube-apiserver-arg:
+  - "bind-address=::"
+kube-scheduler-arg:
+  - "bind-address=::"
+kube-controller-manager-arg:
+  - "bind-address=::"
+kubelet-arg:
+  - "healthz-bind-address=::"
+{{- with $args := .GetKubeletArgs }}
+{{- range $arg := $args }}
+  - {{ printf "%q" $arg }}
+{{- end }}
+{{- end }}
 tls-san:
   - {{ .Vip }}
 {{if .SANS -}}
 {{- range .SANS }}
   - {{ . }}
-{{- end }}
-{{- end }}
-{{- with $args :=  .GetKubeletArgs }}
-kubelet-arg:
-{{- range $arg := $args }}
-- {{ printf "%q" $arg }}
 {{- end }}
 {{- end }}
 audit-policy-file: /etc/rancher/rke2/config.yaml.d/92-harvester-kube-audit-policy.yaml

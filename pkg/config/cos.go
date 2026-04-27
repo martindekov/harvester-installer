@@ -464,6 +464,43 @@ func initRancherdStage(config *HarvesterConfig, stage *yipSchema.Stage) error {
 			Group:       0,
 		},
 	)
+	if config.Install.Mode == "create" {
+		const clusterRepoFixUnit = `[Unit]
+Description=Patch harvester-cluster-repo Service for IPv6-first dual-stack
+After=rke2-server.service
+Wants=rke2-server.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=KUBECONFIG=/etc/rancher/rke2/rke2.yaml
+ExecStart=/bin/bash -c '\
+  KUBECTL=/var/lib/rancher/rke2/bin/kubectl; \
+  while ! $KUBECTL -n cattle-system get svc harvester-cluster-repo &>/dev/null; do sleep 5; done; \
+  echo "Force-replacing harvester-cluster-repo service to IPv4..."; \
+  $KUBECTL delete svc harvester-cluster-repo -n cattle-system --ignore-not-found; \
+  echo '\''{"apiVersion":"v1","kind":"Service","metadata":{"name":"harvester-cluster-repo","namespace":"cattle-system","labels":{"app":"harvester-cluster-repo"}},"spec":{"ipFamilies":["IPv4"],"ipFamilyPolicy":"SingleStack","ports":[{"port":80,"protocol":"TCP","targetPort":80}],"selector":{"app":"harvester-cluster-repo"}}}'\'' | $KUBECTL create -f -; \
+  echo "Patching readiness probe to bypass IPv6..."; \
+  $KUBECTL -n cattle-system patch deployment harvester-cluster-repo --type=json -p='\''[{"op": "replace", "path": "/spec/template/spec/containers/0/readinessProbe", "value": {"exec": {"command": ["curl", "-sf", "http://127.0.0.1/charts/index.yaml"]}, "initialDelaySeconds": 5, "periodSeconds": 10}}]'\'' || true; \
+  echo "Waiting for Rancher API to become ready before patching server-url..."; \
+  while ! $KUBECTL get settings.management.cattle.io server-url &>/dev/null; do sleep 5; done; \
+  echo "Enforcing Rancher server-url for IPv6 VIP..."; \
+  $KUBECTL patch settings.management.cattle.io server-url --type=merge -p='\''{"value":"https://[fd00:cafe:4::167]"}'\'' || true; \
+'
+[Install]
+WantedBy=multi-user.target
+`
+		stage.Files = append(stage.Files,
+			yipSchema.File{
+				Path:        "/etc/systemd/system/harvester-cluster-repo-ipv6-fix.service",
+				Content:     clusterRepoFixUnit,
+				Permissions: 0644,
+				Owner:       0,
+				Group:       0,
+			},
+		)
+		stage.Systemctl.Enable = append(stage.Systemctl.Enable, "harvester-cluster-repo-ipv6-fix.service")
+	}
 
 	return nil
 }
