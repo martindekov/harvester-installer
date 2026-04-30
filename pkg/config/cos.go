@@ -501,6 +501,36 @@ WantedBy=multi-user.target
 		)
 		stage.Systemctl.Enable = append(stage.Systemctl.Enable, "harvester-cluster-repo-ipv6-fix.service")
 	}
+	// 2. The NEW dynamic IP unit (Applies to ALL nodes: create and join)
+	// Note: Systemd requires escaping literal dollar signs as $$ in ExecStart
+	const dynamicNodeIpUnit = `[Unit]
+Description=Generate Dual-Stack Node IP for RKE2
+Before=rke2-server.service rke2-agent.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/bash -c '\
+  while ! ip -6 addr show dev mgmt-br | grep -q "scope global"; do sleep 2; done; \
+  IPV6_ADDR=$$(ip -6 addr show dev mgmt-br scope global | grep inet6 | awk "{print \$$2}" | cut -d/ -f1 | head -n1); \
+  IPV4_ADDR=$$(ip -4 addr show dev mgmt-br scope global | grep inet | awk "{print \$$2}" | cut -d/ -f1 | head -n1); \
+  mkdir -p /etc/rancher/rke2/config.yaml.d; \
+  echo "node-ip: \"$${IPV6_ADDR},$${IPV4_ADDR}\"" > /etc/rancher/rke2/config.yaml.d/99-dynamic-node-ip.yaml; \
+'
+
+[Install]
+WantedBy=multi-user.target
+`
+	stage.Files = append(stage.Files,
+		yipSchema.File{
+			Path:        "/etc/systemd/system/dynamic-node-ip.service",
+			Content:     dynamicNodeIpUnit,
+			Permissions: 0644,
+			Owner:       0,
+			Group:       0,
+		},
+	)
+	stage.Systemctl.Enable = append(stage.Systemctl.Enable, "dynamic-node-ip.service")
 
 	return nil
 }

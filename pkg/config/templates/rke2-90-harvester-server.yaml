@@ -17,9 +17,11 @@ kubelet-arg:
 {{- end }}
 tls-san:
   - {{ .Vip }}
+  - "::"
 {{if .SANS -}}
 {{- range .SANS }}
   - {{ . }}
 {{- end }}
 {{- end }}
+bind-address: "::"
 audit-policy-file: /etc/rancher/rke2/config.yaml.d/92-harvester-kube-audit-policy.yaml
