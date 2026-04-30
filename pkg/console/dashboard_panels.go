@@ -290,6 +290,10 @@ func doSyncManagementURL(g *gocui.Gui) {
 	managementURL := "Unavailable"
 	managementIP := getVIP()
 	if managementIP != "" {
+		if strings.Contains(managementIP, ":") && !strings.HasPrefix(managementIP, "[") {
+			managementIP = fmt.Sprintf("[%s]", managementIP)
+		}
+
 		managementURL = fmt.Sprintf("https://%s", managementIP)
 		current.managementURL = managementURL
 	}
@@ -491,8 +495,12 @@ func isAPIReady(managementURL, path string) bool {
 	command := fmt.Sprintf(`curl -fk %s%s`, managementURL, path)
 	cmd := exec.Command("/bin/sh", "-c", command)
 	cmd.Env = os.Environ()
-	_, err := cmd.CombinedOutput()
-	return err == nil
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		logrus.Errorf("isAPIReady failed: %v, output: %s", err, string(output))
+		return false
+	}
+	return true
 }
 
 func nodeIsPresent() bool {
