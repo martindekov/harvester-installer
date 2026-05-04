@@ -17,6 +17,7 @@ kubelet-arg:
 {{- end }}
 tls-san:
   - {{ .Vip }}
+  - "fd00:cafe:4::200"
   - "::"
 {{if .SANS -}}
 {{- range .SANS }}

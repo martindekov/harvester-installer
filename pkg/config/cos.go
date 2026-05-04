@@ -494,7 +494,7 @@ ExecStart=/bin/bash -c '\
   echo "Waiting for Rancher API to become ready before patching server-url..."; \
   while ! $KUBECTL get settings.management.cattle.io server-url &>/dev/null; do sleep 5; done; \
   echo "Enforcing Rancher server-url for IPv6 VIP..."; \
-  $KUBECTL patch settings.management.cattle.io server-url --type=merge -p='\''{"value":"https://[fd00:cafe:4::167]"}'\'' || true; \
+  $KUBECTL patch settings.management.cattle.io server-url --type=merge -p='\''{"value":"https://[fd00:cafe:4::200]"}'\'' || true; \
 '
 [Install]
 WantedBy=multi-user.target

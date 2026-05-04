@@ -145,7 +145,7 @@ resources:
       service:
         vip:
           enabled: true
-          ip: fd00:cafe:4::167
+          ip: fd00:cafe:4::200
           mode: static
           vip_interface: mgmt-br
       {{- end }}
