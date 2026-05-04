@@ -466,7 +466,7 @@ func initRancherdStage(config *HarvesterConfig, stage *yipSchema.Stage) error {
 	)
 	if config.Install.Mode == "create" {
 		const clusterRepoFixUnit = `[Unit]
-Description=Patch harvester-cluster-repo Service for IPv6-first dual-stack
+Description=Patch Harvester & Rancher Services for IPv6-first dual-stack
 After=rke2-server.service
 Wants=rke2-server.service
 
@@ -476,12 +476,21 @@ RemainAfterExit=yes
 Environment=KUBECONFIG=/etc/rancher/rke2/rke2.yaml
 ExecStart=/bin/bash -c '\
   KUBECTL=/var/lib/rancher/rke2/bin/kubectl; \
+  \
+  echo "Waiting for harvester-cluster-repo service..."; \
   while ! $KUBECTL -n cattle-system get svc harvester-cluster-repo &>/dev/null; do sleep 5; done; \
   echo "Force-replacing harvester-cluster-repo service to IPv4..."; \
   $KUBECTL delete svc harvester-cluster-repo -n cattle-system --ignore-not-found; \
   echo '\''{"apiVersion":"v1","kind":"Service","metadata":{"name":"harvester-cluster-repo","namespace":"cattle-system","labels":{"app":"harvester-cluster-repo"}},"spec":{"ipFamilies":["IPv4"],"ipFamilyPolicy":"SingleStack","ports":[{"port":80,"protocol":"TCP","targetPort":80}],"selector":{"app":"harvester-cluster-repo"}}}'\'' | $KUBECTL create -f -; \
   echo "Patching readiness probe to bypass IPv6..."; \
   $KUBECTL -n cattle-system patch deployment harvester-cluster-repo --type=json -p='\''[{"op": "replace", "path": "/spec/template/spec/containers/0/readinessProbe", "value": {"exec": {"command": ["curl", "-sf", "http://127.0.0.1/charts/index.yaml"]}, "initialDelaySeconds": 5, "periodSeconds": 10}}]'\'' || true; \
+  \
+  echo "Waiting for rancher service..."; \
+  while ! $KUBECTL -n cattle-system get svc rancher &>/dev/null; do sleep 5; done; \
+  echo "Force-replacing rancher service to IPv4 to fix peer discovery..."; \
+  $KUBECTL delete svc rancher -n cattle-system --ignore-not-found; \
+  echo '\''{"apiVersion":"v1","kind":"Service","metadata":{"name":"rancher","namespace":"cattle-system","labels":{"app":"rancher"}},"spec":{"ipFamilies":["IPv4"],"ipFamilyPolicy":"SingleStack","ports":[{"name":"http","port":80,"protocol":"TCP","targetPort":80},{"name":"https-internal","port":443,"protocol":"TCP","targetPort":443}],"selector":{"app":"rancher"}}}'\'' | $KUBECTL create -f -; \
+  \
   echo "Waiting for Rancher API to become ready before patching server-url..."; \
   while ! $KUBECTL get settings.management.cattle.io server-url &>/dev/null; do sleep 5; done; \
   echo "Enforcing Rancher server-url for IPv6 VIP..."; \
